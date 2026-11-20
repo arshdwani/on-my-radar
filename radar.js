@@ -127,12 +127,12 @@
     ctx.beginPath(); ctx.rect(-9, -46, 18, 92); ctx.fill(); ctx.stroke();
     ctx.setLineDash([10, 9]); ctx.strokeStyle = "#5c656e"; ctx.beginPath(); ctx.moveTo(0, -36); ctx.lineTo(0, 36); ctx.stroke(); ctx.setLineDash([]);
     ctx.restore();
-    text(ctx, "RWY " + (g.runway || "18"), cx + 22, cy + 46, font(700, 26, MONO), "#7c858e", "left");
+    if (!g.noTags) text(ctx, "RWY " + (g.runway || "18"), cx + 22, cy + 46, font(700, 26, MONO), "#7c858e", "left");
     g.avoid = [...(g.avoid || []), { x: cx + 16, y: cy + 20, w: 110, h: 34 }];
 
     // ring labels along the 160 deg bearing
     const labels = [];
-    for (let d = step; d <= range && !st.done; d += step) {
+    for (let d = step; d <= range && !st.done && !g.noTags; d += step) {
       if (range <= 7 && d !== 3 && d !== 5 && d !== 7) continue;
       const [x, y] = pol(cx, cy, d * ppd, 162);
       const s = d + "D";
@@ -188,7 +188,7 @@
     });
     const f1 = font(700, 42, MONO), f2 = font(400, 38, MONO);
     const out = [];
-    for (const it of order) {
+    for (const it of g.noTags ? [] : order) {
       const L = tagLines(it.a, st);
       const w = Math.max(measure(ctx, L.l1, f1, -2), measure(ctx, L.l2 + (L.extra ? "  " + L.extra : ""), f2, -2)) + 24;
       const h = 104;
@@ -217,6 +217,7 @@
     }
     // draw leaders, then targets, then tags
     for (const o of out) {
+      if (o.noTag) continue;
       const { it, L, best } = o;
       const r = best.rect;
       const ex = best.dx > 0.35 ? r.x : best.dx < -0.35 ? r.x + r.w : r.x + r.w / 2;
@@ -225,6 +226,7 @@
       const t = Math.atan2(ey - it.y, ex - it.x);
       ctx.moveTo(it.x + Math.cos(t) * 22, it.y + Math.sin(t) * 22); ctx.lineTo(ex, ey); ctx.stroke();
     }
+    if (g.noTags) for (const it of items) out.push({ it, L: tagLines(it.a, st), noTag: true });
     for (const o of out) {
       const { it, L } = o;
       ctx.save(); ctx.shadowColor = "rgba(76,139,255,0.85)"; ctx.shadowBlur = 22;
@@ -236,6 +238,7 @@
       text(ctx, String(it.a.seq), it.x, it.y + 2, font(700, 30, MONO), "#ffffff", "center", 0, "middle");
     }
     for (const o of out) {
+      if (o.noTag) continue;
       const { L, best, f1, f2 } = o;
       const r = best.rect;
       ctx.fillStyle = "rgba(0,0,0,0.82)"; ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -335,8 +338,8 @@
     ctx.save();
     if (opts.mode === "scope") {
       const s = W / 1100; ctx.scale(s, s);
-      ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 1100, 1100);
-      const g = { cx: 550, cy: 550, R: 470, top: 10, bottom: 1090, minX: 10, maxX: 1090, frac: opts.frac || 0, runway: plan.runway };
+      if (!opts.transparent) { ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 1100, 1100); }
+      const g = { cx: 550, cy: 550, R: 470, top: 10, bottom: 1090, minX: 10, maxX: 1090, frac: opts.frac || 0, runway: plan.runway, noTags: !!opts.noTags };
       drawScope(ctx, st, g);
       if (st.done) text(ctx, "ALL TRAFFIC LANDED", 550, 430, font(700, 60, MONO), C.green, "center");
     } else {
