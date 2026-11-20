@@ -1,0 +1,48 @@
+/* On My Radar: the plan (from Gemini, chat "CS Finals Air Traffic Control Plan", Nov 20 2026).
+   Arrivals land on one runway (you). A landing slot is the day the work is submitted or the exam is sat.
+   Separation: 48 h between landings, 72 h behind a HEAVY (wake turbulence). */
+window.PLAN = {
+  title: "FINALS",
+  runway: "18",
+  start: "2026-11-20",
+  arrivals: [
+    { id: "ALGO", name: "ALGO PSET",   course: "ALGO", kind: "PSET",   heavy: false, fixed: false, due: "2026-12-02", slot: "2026-12-02", begin: "2026-11-29", fix: "BIGOH", brg: 244 },
+    { id: "ECON", name: "ECON ESSAY",  course: "ECON", kind: "ESSAY",  heavy: false, fixed: false, due: "2026-12-04", slot: "2026-12-04", begin: "2026-11-23", fix: "SMITH", brg: 62 },
+    { id: "STAT", name: "STAT REPORT", course: "STAT", kind: "REPORT", heavy: false, fixed: false, due: "2026-12-10", slot: "2026-12-07", begin: "2026-12-05", fix: "SIGMA", brg: 296 },
+    { id: "OS",   name: "OS PROJECT",  course: "OS",   kind: "PROJECT",heavy: true,  fixed: false, due: "2026-12-09", slot: "2026-12-09", begin: "2026-11-20", fix: "KRNEL", brg: 128 },
+    { id: "PHYS", name: "PHYS FINAL",  course: "PHYS", kind: "FINAL",  heavy: true,  fixed: true,  due: "2026-12-15", slot: "2026-12-15", begin: "2026-12-10", fix: "FARAD", brg: 200 },
+    { id: "MATH", name: "MATH FINAL",  course: "MATH", kind: "FINAL",  heavy: true,  fixed: true,  due: "2026-12-18", slot: "2026-12-18", begin: "2026-12-13", fix: "EIGEN", brg: 338 },
+  ],
+  // one clearance per day: [arrival id, task]
+  days: {
+    "2026-11-20": ["OS", "Read spec, design file system"],
+    "2026-11-21": ["OS", "Superblock and inode structs"],
+    "2026-11-22": ["OS", "Block allocation bitmap"],
+    "2026-11-23": ["ECON", "Lock thesis and sources"],
+    "2026-11-24": ["ECON", "Outline, gather citations"],
+    "2026-11-25": ["OS", "Directory lookup and create"],
+    "2026-11-26": ["ECON", "Light reading (Thanksgiving)"],
+    "2026-11-27": ["OS", "File read and write"],
+    "2026-11-28": ["ECON", "Draft first 1,250 words"],
+    "2026-11-29": ["ALGO", "Solve all, draft proofs"],
+    "2026-11-30": ["OS", "Test file read and write"],
+    "2026-12-01": ["ECON", "Draft last 1,250 words"],
+    "2026-12-02": ["ALGO", "Final review, submit"],
+    "2026-12-03": ["OS", "Test directory ops, unlink"],
+    "2026-12-04": ["ECON", "Edit, citations, submit"],
+    "2026-12-05": ["STAT", "Clean data, explore"],
+    "2026-12-06": ["STAT", "Models and charts"],
+    "2026-12-07": ["STAT", "Finish write-up, submit"],
+    "2026-12-08": ["OS", "Debug edge cases, run tests"],
+    "2026-12-09": ["OS", "Final test pass, submit"],
+    "2026-12-10": ["PHYS", "Light formula-sheet review"],
+    "2026-12-11": ["PHYS", "Mechanics + E&M notes"],
+    "2026-12-12": ["PHYS", "Past exam problems"],
+    "2026-12-13": ["MATH", "Eigenvalues, orthogonality"],
+    "2026-12-14": ["PHYS", "Timed mock, fix mistakes"],
+    "2026-12-15": ["PHYS", "Physics final exam"],
+    "2026-12-16": ["MATH", "Light review of proofs"],
+    "2026-12-17": ["MATH", "Timed practice exam"],
+    "2026-12-18": ["MATH", "Linear algebra final exam"],
+  },
+};
