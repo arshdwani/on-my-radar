@@ -19,14 +19,14 @@ distance from the runway is the number of days until it lands (the day it is sub
 ## The sample plan
 A CS junior's finals, Nov 20 to Dec 18, 2026: ALGO PSET, ECON ESSAY, STAT REPORT, OS PROJECT (heavy),
 PHYS FINAL (heavy, fixed), MATH FINAL (heavy, fixed). The official due dates put the OS project and the stats
-report 24 hours apart; the plan lands the report 3 days early, on Dec 7, ahead of the OS project on Dec 9.
+report 24 hours apart; the plan slots the report 3 days early, on Dec 7, ahead of the OS project on Dec 9.
 Landing slots, start days and one task per day were planned with Gemini.
 
 ## Use it
 - **Download this day (PNG)**, **Every day (.zip)** and **Clearance reminders (.ics)** on the live page.
 - iOS: put the unzipped `OnMyRadar` folder in iCloud Drive/Shortcuts, then Shortcuts → Automation → Time of Day
   (6:00 AM, daily, run immediately): Current Date → Format Date (`yyyy-MM-dd`) → Get File
-  `OnMyRadar/[Formatted Date].png` → Set Wallpaper Photo (Lock Screen).
+  `OnMyRadar/[Formatted Date].png` → Set Wallpaper Photo (Lock Screen). Set Notifications → Display As: Count.
 - **Your own deadlines:** one per line, `name, YYYY-MM-DD`, plus `H` (heavy) and `X` (exam, can't move), or import
   a calendar `.ics`. The sequencer tries every landing order and picks the one that pulls the least work earlier
   while keeping separation. Your plan lives in the URL and your browser only.

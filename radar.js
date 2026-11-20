@@ -60,6 +60,8 @@
       landed: arr.filter((a) => a.status === "landed").length,
       done: arr.every((a) => a.status === "landed"),
       before: today < dn(plan.start),
+      elapsed: today - dn(plan.start),
+      goArounds: arr.reduce((n, a) => n + (a.goAround || 0), 0),
     };
   }
 
@@ -127,8 +129,6 @@
     ctx.beginPath(); ctx.rect(-9, -46, 18, 92); ctx.fill(); ctx.stroke();
     ctx.setLineDash([10, 9]); ctx.strokeStyle = "#5c656e"; ctx.beginPath(); ctx.moveTo(0, -36); ctx.lineTo(0, 36); ctx.stroke(); ctx.setLineDash([]);
     ctx.restore();
-    if (!g.noTags) text(ctx, "RWY " + (g.runway || "18"), cx + 22, cy + 46, font(700, 26, MONO), "#7c858e", "left");
-    g.avoid = [...(g.avoid || []), { x: cx + 16, y: cy + 20, w: 110, h: 34 }];
 
     // ring labels along the 160 deg bearing
     const labels = [];
@@ -136,10 +136,10 @@
       if (range <= 7 && d !== 3 && d !== 5 && d !== 7) continue;
       const [x, y] = pol(cx, cy, d * ppd, 162);
       const s = d + "D";
-      const f = font(700, 34, MONO), w = measure(ctx, s, f);
-      ctx.fillStyle = C.bg; ctx.fillRect(x - w / 2 - 8, y - 22, w + 16, 44);
+      const f = font(700, 38, MONO), w = measure(ctx, s, f);
+      ctx.fillStyle = C.bg; ctx.fillRect(x - w / 2 - 8, y - 24, w + 16, 48);
       text(ctx, s, x, y + 1, f, C.ringLabel, "center", 0, "middle");
-      labels.push({ x: x - w / 2 - 8, y: y - 22, w: w + 16, h: 44 });
+      labels.push({ x: x - w / 2 - 8, y: y - 24, w: w + 16, h: 48 });
     }
     g.ringLabels = labels;
 
@@ -149,18 +149,24 @@
       if (a.status === "landed") continue;
       const r = Math.max(0, a.d - (a.status === "landing" ? 0 : fr)) * ppd;
       const [x, y] = pol(cx, cy, r, a.brg);
-      for (let k = 10; k >= 1; k--) {
-        const rr = (a.d + k - fr) * ppd; if (rr > R - 6) continue;
-        const [hx, hy] = pol(cx, cy, rr, a.brg);
-        ctx.globalAlpha = 0.95 - k * 0.07; ctx.fillStyle = C.blue;
-        ctx.beginPath(); ctx.arc(hx, hy, 8.5 - k * 0.45, 0, Math.PI * 2); ctx.fill();
+      // history trail: one dot per day already flown since the plan started (at most 8)
+      const trail = [];
+      for (let k = 1; k <= Math.min(8, st.elapsed); k++) {
+        const rr = (a.d + k - fr) * ppd; if (rr > R - 6) break;
+        trail.push(pol(cx, cy, rr, a.brg));
       }
-      ctx.globalAlpha = 1;
-      if (a.status === "owned" && a.d >= 1) {
-        const [px, py] = pol(cx, cy, Math.max(0, a.d - 1 - fr) * ppd, a.brg);
-        ctx.strokeStyle = C.white; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(px, py); ctx.stroke();
+      const pred = a.status === "owned" && a.d >= 1 ? pol(cx, cy, Math.max(0, a.d - 1 - fr) * ppd, a.brg) : null;
+      items.push({ a, x, y, trail, pred });
+    }
+    // runway label: first spot around the runway that no target sits on
+    if (!g.noTags) {
+      const lab = "RWY " + (g.runway || "18"), lf = font(700, 30, MONO), lw = measure(ctx, lab, lf);
+      const spots = [[cx + 20, cy + 26], [cx - 20 - lw, cy + 26], [cx + 20, cy - 56], [cx - 20 - lw, cy - 56], [cx - lw / 2, cy + 58]];
+      const free = spots.find(([x, y]) => items.every((it) => it.x < x - 30 || it.x > x + lw + 30 || it.y < y - 30 || it.y > y + 64));
+      if (free) {
+        text(ctx, lab, free[0], free[1] + 22, lf, "#7c858e", "left");
+        g.avoid = [...(g.avoid || []), { x: free[0] - 4, y: free[1] - 4, w: lw + 8, h: 36 }];
       }
-      items.push({ a, x, y });
     }
     // labels & targets
     placeTags(ctx, st, items, g);
@@ -215,6 +221,19 @@
       placed.push(best.rect);
       out.push({ it, L, best, f1, f2 });
     }
+    // trails stop where a label box would cover them, so no loose dots appear beyond a label
+    const boxes = out.filter((o) => !o.noTag).map((o) => o.best.rect);
+    const inBox = ([x, y]) => boxes.some((r) => x > r.x - 10 && x < r.x + r.w + 10 && y > r.y - 10 && y < r.y + r.h + 10);
+    for (const it of items) {
+      for (let k = 0; k < it.trail.length; k++) {
+        if (inBox(it.trail[k])) break;
+        const [hx, hy] = it.trail[k];
+        ctx.globalAlpha = 0.95 - (k + 1) * 0.08; ctx.fillStyle = C.blue;
+        ctx.beginPath(); ctx.arc(hx, hy, 8.5 - (k + 1) * 0.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      if (it.pred) { ctx.strokeStyle = C.white; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(it.x, it.y); ctx.lineTo(it.pred[0], it.pred[1]); ctx.stroke(); }
+    }
     // draw leaders, then targets, then tags
     for (const o of out) {
       if (o.noTag) continue;
@@ -252,10 +271,10 @@
   /* ---------------- lock screen layout (1290 x 2796) ---------------- */
   function drawLock(ctx, st, plan, opts) {
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 1290, 2796);
-    const g = { cx: 645, cy: 1652, R: 486, top: 1140, bottom: 2168, frac: opts.frac || 0, runway: plan.runway };
+    const g = { cx: 645, cy: 1642, R: 474, top: 1140, bottom: 2146, frac: opts.frac || 0, runway: plan.runway };
 
     // header
-    text(ctx, (plan.title || "FINALS") + " APPROACH", 70, 992, font(700, 34, SANS), C.gray, "left", 5);
+    text(ctx, (plan.title || "FINALS") + " APPROACH · " + (st.goArounds ? `${st.goArounds} GO-AROUND${st.goArounds > 1 ? "S" : ""}` : "ON PLAN"), 70, 992, font(700, 34, SANS), st.goArounds ? C.yellow : C.gray, "left", 4);
     if (!st.done) {
       const big = font(700, 132, SANS);
       const n = st.daysLeft === 0 ? "TODAY" : String(st.daysLeft);
@@ -271,28 +290,28 @@
 
     drawScope(ctx, st, g);
     if (st.done) {
-      text(ctx, `${st.arr.length} OF ${st.arr.length} LANDED`, g.cx, g.cy - 120, font(700, 64, MONO), C.green, "center");
+      text(ctx, `${st.arr.length} OF ${st.arr.length} LANDED`, g.cx, g.cy - 120, font(700, 64, MONO), C.white, "center");
       text(ctx, "FINALS COMPLETE", g.cx, g.cy + 150, font(700, 48, MONO), C.gray, "center", 4);
     }
 
     // clearance strip
-    const y0 = 2192;
-    ctx.fillStyle = C.panel; rrect(ctx, 50, y0, 1190, 128, 18); ctx.fill();
-    ctx.strokeStyle = st.task ? C.yellow : C.line; ctx.lineWidth = 3; rrect(ctx, 50, y0, 1190, 128, 18); ctx.stroke();
+    const y0 = 2164;
+    ctx.fillStyle = C.panel; rrect(ctx, 50, y0, 1190, 122, 18); ctx.fill();
+    ctx.strokeStyle = st.task ? C.yellow : C.line; ctx.lineWidth = 3; rrect(ctx, 50, y0, 1190, 122, 18); ctx.stroke();
     if (st.task) {
       const a = st.arr.find((x) => x.id === st.task.id);
       const landing = a && a.status === "landing";
       const lab = landing ? "TODAY · " + a.name + " · CLEARED TO LAND" : "TODAY'S CLEARANCE · " + (a ? a.name : st.task.id);
-      text(ctx, lab, 82, y0 + 46, font(700, 32, SANS), C.yellow, "left", 3);
+      text(ctx, lab, 82, y0 + 44, font(700, 32, SANS), C.yellow, "left", 3);
       let f = 56; while (measure(ctx, st.task.text, font(700, f, SANS)) > 1120 && f > 40) f -= 2;
-      text(ctx, st.task.text, 82, y0 + 106, font(700, f, SANS), C.white);
+      text(ctx, st.task.text, 82, y0 + 102, font(700, f, SANS), C.white);
     } else if (st.done) {
-      text(ctx, "CLEARED: WINTER BREAK", 82, y0 + 46, font(700, 32, SANS), C.green, "left", 3);
-      text(ctx, st.arr.length === 6 ? "Sleep in. You landed all six." : "Sleep in. Everything landed.", 82, y0 + 106, font(700, 56, SANS), C.white);
+      text(ctx, "CLEARED: WINTER BREAK", 82, y0 + 44, font(700, 32, SANS), C.gray, "left", 3);
+      text(ctx, "Finals are over. Sleep in.", 82, y0 + 102, font(700, 56, SANS), C.white);
     }
 
     // landing sequence ladder
-    drawLadder(ctx, st, 50, 2352, 1190, 128);
+    drawLadder(ctx, st, 50, 2346, 1190, 134);
   }
 
   function drawLadder(ctx, st, x0, y0, W, H) {
@@ -301,23 +320,25 @@
     st.arr.forEach((a, i) => {
       const x = x0 + i * (cw + gap);
       const landed = a.status === "landed", next = a.id === nextId, today = st.task && st.task.id === a.id;
-      const col = landed ? C.green : a.ca ? C.red : today ? C.yellow : C.white;
-      ctx.fillStyle = landed ? "#07140c" : C.panel; rrect(ctx, x, y0, cw, H, 14); ctx.fill();
-      ctx.strokeStyle = landed ? "#1f6b3a" : a.ca ? C.red : today ? C.yellow : C.line; ctx.lineWidth = 3; rrect(ctx, x, y0, cw, H, 14); ctx.stroke();
-      text(ctx, landed ? "✓ LANDED" : `#${a.seq}` + (next ? " NEXT" : ""), x + 16, y0 + 36, font(700, 26, SANS), landed ? C.green : next ? C.white : C.gray, "left", 1);
+      const col = landed ? "#7c858e" : a.ca ? C.red : today ? C.yellow : a.status === "unowned" ? C.green : C.white;
+      ctx.fillStyle = landed ? "#06080a" : C.panel; rrect(ctx, x, y0, cw, H, 14); ctx.fill();
+      ctx.strokeStyle = landed ? "#1a1f24" : a.ca ? C.red : today ? C.yellow : C.line; ctx.lineWidth = 3; rrect(ctx, x, y0, cw, H, 14); ctx.stroke();
+      text(ctx, landed ? "✓ LANDED" : `#${a.seq}`, x + 16, y0 + 38, font(700, 30, SANS), landed ? "#7c858e" : next ? C.white : C.gray, "left", 1);
       text(ctx, a.course, x + 16, y0 + 80, font(700, 40, SANS), col);
-      text(ctx, md(a.slot), x + 16, y0 + 116, font(700, 30, MONO), landed ? "#5aa877" : C.gray, "left", -1);
-      if (a.due !== a.slot && !landed) text(ctx, "DUE " + +a.due.slice(8, 10), x + cw - 12, y0 + 36, font(700, 22, MONO), landed ? "#5aa877" : C.gray, "right", -1);
+      text(ctx, md(a.slot), x + 16, y0 + 116, font(700, 30, MONO), landed ? "#5d666f" : C.gray, "left", -1);
+      if (a.due !== a.slot && !landed) text(ctx, "DUE " + +a.due.slice(8, 10), x + cw - 12, y0 + 38, font(700, 26, MONO), C.gray, "right", -1);
     });
     // separation between landings, drawn on the gaps
     st.arr.forEach((a, i) => {
       if (!i) return;
       const x = x0 + i * (cw + gap) - gap / 2;
-      const s = a.wake ? `${a.gap}D WAKE` : `${a.gap}D`;
-      const f = font(700, 22, MONO), w = measure(ctx, s, f) + 14;
-      ctx.fillStyle = "#000"; rrect(ctx, x - w / 2, y0 - 18, w, 34, 10); ctx.fill();
-      ctx.strokeStyle = a.ca ? C.red : C.dim; ctx.lineWidth = 2; rrect(ctx, x - w / 2, y0 - 18, w, 34, 10); ctx.stroke();
-      text(ctx, s, x, y0 - 0, f, a.ca ? C.red : C.gray, "center", 0, "middle");
+      const s = a.wake && a.gap === a.gapNeed ? `${a.gap}D WAKE` : `${a.gap}D`;
+      const f = font(700, 28, MONO), w = measure(ctx, s, f, -1) + 16;
+      const cyc = y0 - 26;
+      ctx.strokeStyle = a.ca ? C.red : C.dim; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, cyc + 21); ctx.lineTo(x, y0 + 4); ctx.stroke();
+      ctx.fillStyle = "#000"; rrect(ctx, x - w / 2, cyc - 21, w, 42, 12); ctx.fill();
+      ctx.strokeStyle = a.ca ? C.red : a.wake && a.gap === a.gapNeed ? C.gray : C.dim; ctx.lineWidth = 2; rrect(ctx, x - w / 2, cyc - 21, w, 42, 12); ctx.stroke();
+      text(ctx, s, x, cyc + 1, f, a.ca ? C.red : a.wake && a.gap === a.gapNeed ? C.white : C.gray, "center", -1, "middle");
     });
   }
 
@@ -341,7 +362,7 @@
       if (!opts.transparent) { ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 1100, 1100); }
       const g = { cx: 550, cy: 550, R: 470, top: 10, bottom: 1090, minX: 10, maxX: 1090, frac: opts.frac || 0, runway: plan.runway, noTags: !!opts.noTags };
       drawScope(ctx, st, g);
-      if (st.done) text(ctx, "ALL TRAFFIC LANDED", 550, 430, font(700, 60, MONO), C.green, "center");
+      if (st.done) text(ctx, `${st.arr.length} OF ${st.arr.length} LANDED`, 550, 430, font(700, 64, MONO), C.white, "center");
     } else {
       const s = W / 1290; ctx.scale(s, s);
       drawLock(ctx, st, plan, opts);
